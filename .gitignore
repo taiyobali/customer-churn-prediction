@@ -1,0 +1,40 @@
+# venvs
+.venv/
+venv/
+env/
+
+# Environment variables
+.env
+
+# OS cruft
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Model artifacts
+*.pkl
+*.joblib
+
+# CatBoost
+catboost_info/
+**/catboost_info/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Big artifacts we don't want in git
+mlruns/
+artifacts/
+data/raw/
+data/processed/
+
+# BUT keep our bundled serving model in the repo
+!src/serving/model/
+!src/serving/model/**
+
+# MLflow
+mlruns/
+mlflow.db

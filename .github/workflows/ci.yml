@@ -27,4 +27,4 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: anasriad8/telco-fastapi:latest
+          tags: taiyobali/customer-churn-prediction:latest

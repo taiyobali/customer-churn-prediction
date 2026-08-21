@@ -16,6 +16,14 @@ env/
 *.pkl
 *.joblib
 
+# Keep production serving artifacts
+!artifacts/
+!artifacts/model/
+!artifacts/model/**
+!artifacts/preprocessing.pkl
+!artifacts/feature_columns.txt
+!artifacts/feature_columns.json
+
 # CatBoost
 catboost_info/
 **/catboost_info/
@@ -27,7 +35,6 @@ __pycache__/
 
 # Big artifacts we don't want in git
 mlruns/
-artifacts/
 data/raw/
 data/processed/
 

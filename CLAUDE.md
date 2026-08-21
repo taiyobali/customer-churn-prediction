@@ -1,100 +1,473 @@
-CLAUDE.md
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# CLAUDE.md
+
+
+This file provides guidance to Claude Code when working with this repository.
+
+
+
+# Project Overview
+
+
+This repository contains an end-to-end telecom customer churn prediction system.
+
+
+The project includes:
+
+
+- Data validation
+- Data preprocessing
+- Feature engineering
+- XGBoost model training
+- MLflow experiment tracking
+- FastAPI inference API
+- Gradio web UI
+- Docker containerization
+- GitHub Actions CI/CD
+- Docker Hub image publishing
+- AWS ECS/Fargate deployment architecture
+
+
+---
+
+
+# Environment
+
+
+Primary Docker base image:
+
+
+python:3.12-slim
+
+The local development environment may use a different Python version, but Docker is the reference environment for containerized deployment.
 
 Commands
 Training Pipeline
-# Run the complete ML training pipeline
+
+Run the complete ML training pipeline:
+
 python scripts/run_pipeline.py --input data/raw/Telco-Customer-Churn.csv --target Churn
 
-# Prepare processed data only
+Prepare processed data:
+
 python scripts/prepare_processed_data.py
 Testing
-# Test data processing and feature engineering
+
+Test data processing and feature engineering:
+
 python scripts/test_pipeline_phase1_data_features.py
 
-# Test model training and evaluation
+Test model training and evaluation:
+
 python scripts/test_pipeline_phase2_modeling.py
 
-# Test FastAPI endpoints
+Test FastAPI endpoints:
+
 python scripts/test_fastapi.py
 Local Development
-# Run the FastAPI + Gradio application locally
+
+Run FastAPI + Gradio:
+
 python -m uvicorn src.app.main:app --host 0.0.0.0 --port 8000
 
-# Alternative app entry point
-python -m uvicorn src.app.app:app --host 0.0.0.0 --port 8000
+Application:
+
+http://localhost:8000
+
+Swagger documentation:
+
+http://localhost:8000/docs
+
+Gradio:
+
+http://localhost:8000/ui
 Docker
-# Build and run the containerized application
-docker build -t telco-churn-app .
-docker run -p 8000:8000 telco-churn-app
-Architecture Overview
-ML Pipeline Flow
-This project implements a complete MLOps pipeline with two distinct phases:
 
-Training Pipeline (scripts/run_pipeline.py):
+Build:
 
-Data Loading → Data Validation (Great Expectations) → Preprocessing → Feature Engineering → XGBoost Training → MLflow Logging
-All artifacts (model, feature columns, preprocessing logic) are stored in MLflow for reproducibility
-Serving Pipeline (src/app/main.py + src/serving/inference.py):
+docker build -t customer-churn-prediction .
 
-FastAPI REST API (/predict endpoint) + Gradio Web UI (/ui endpoint) → MLflow Model Loading → Feature Transformation → Prediction
-Feature processing mirrors training-time transformations for consistency
-MLflow Integration Patterns
-Experiment Name: "Telco Churn" (default, can be overridden)
-Tracking URI: File-based at {project_root}/mlruns
-Logged Artifacts: model/, feature_columns.txt, preprocessing.pkl
-Tracked Metrics: precision, recall, f1, roc_auc, train_time, pred_time, data_quality_pass
-Parameters: model type, threshold (default 0.35), test_size (default 0.2)
-Feature Engineering Consistency
-Critical pattern: Training and serving must use identical feature transformations.
+Run:
 
-Training (src/features/build_features.py):
+docker run -p 8000:8000 customer-churn-prediction
 
-Binary features (Yes/No, Male/Female) → deterministic 0/1 mapping
-Multi-category features → one-hot encoding with drop_first=True
-Boolean columns → integers
-Serving (src/serving/inference.py):
+Docker Hub image:
 
-Uses fixed BINARY_MAP dictionary for consistent binary encoding
-Applies pd.get_dummies() with same parameters as training
-Feature alignment via FEATURE_COLS from training artifacts
-Model Loading and Serving
-Container Path: Model loaded from /app/model (MLflow pyfunc format)
-Feature Order: Enforced using feature_columns.txt from training
-Prediction Format: Returns "Likely to churn" or "Not likely to churn" strings
+taiyobali/customer-churn-prediction:latest
+
+Pull:
+
+docker pull taiyobali/customer-churn-prediction:latest
+
+Run:
+
+docker run -p 8000:8000 taiyobali/customer-churn-prediction:latest
+Architecture
+Training Pipeline
+Raw Data
+   ↓
 Data Validation
-Tool: Great Expectations with custom validation suite
-Location: src/utils/validate_data.py
-Checks: CustomerID presence, gender values, numeric ranges for tenure/charges
-Integration: Results logged to MLflow as data_quality_pass metric
-Docker Containerization
-Base Image: python:3.11-slim
-Key Setting: PYTHONPATH=/app/src for proper module imports
-Model Artifacts: Specific MLflow run copied to /app/model during build
-Serving: uvicorn with FastAPI app on port 8000
-CI/CD Pipeline
-Trigger: Push to main branch
-Actions: Build Docker image → Push to Docker Hub (anasriad8/telco-fastapi:latest)
-Requirements: DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets
-Deployment: Manual ECS service update (AWS Fargate + ALB)
-Key Implementation Details
-XGBoost Model Configuration
-Optimized hyperparameters are hardcoded in scripts/run_pipeline.py:100-110:
+   ↓
+Preprocessing
+   ↓
+Feature Engineering
+   ↓
+XGBoost Training
+   ↓
+Evaluation
+   ↓
+MLflow Logging
 
-n_estimators=301, learning_rate=0.034, max_depth=7
-scale_pos_weight calculated dynamically for class imbalance handling
-API Endpoints
-GET / - Health check returning {"status": "ok"}
-POST /predict - Accepts CustomerData Pydantic model with 18 customer attributes
-/ui - Gradio interface mounted via gr.mount_gradio_app()
-File System Layout
-data/raw/ - Original datasets
-data/processed/ - Cleaned datasets
-mlruns/ - MLflow experiment tracking database
-artifacts/ - Shared preprocessing artifacts (feature_columns.json, preprocessing.pkl)
-src/serving/model/ - Local MLflow run copies for development
-Development Notes
-No formal test suite exists; use manual test scripts in scripts/test_*.py
-MLflow UI can be accessed with: mlflow ui --backend-store-uri file:./mlruns
-The project uses file-based MLflow tracking (not a tracking server)
-Model serving expects exact feature column order from training time
+Main training entry point:
+
+scripts/run_pipeline.py
+Serving Pipeline
+Customer Request
+      ↓
+FastAPI
+      ↓
+Inference
+      ↓
+Feature Transformation
+      ↓
+Trained XGBoost Model
+      ↓
+Prediction
+
+FastAPI application:
+
+src/app/main.py
+
+Inference logic:
+
+src/serving/inference.py
+MLflow
+
+Experiment name:
+
+Telco Churn
+
+Default tracking location:
+
+./mlruns
+
+Start MLflow:
+
+mlflow ui --backend-store-uri file:./mlruns
+
+MLflow tracks:
+
+Metrics
+precision
+recall
+f1
+roc_auc
+train_time
+pred_time
+data_quality_pass
+Parameters
+model type
+threshold
+test_size
+model hyperparameters
+Artifacts
+trained model
+feature columns
+preprocessing artifacts
+Feature Engineering
+
+Training and serving MUST use the same feature transformation logic.
+
+Training feature engineering:
+
+src/features/build_features.py
+
+Serving feature transformation:
+
+src/serving/inference.py
+
+Binary categorical features must use deterministic mappings.
+
+Examples:
+
+Yes / No
+Male / Female
+
+Categorical variables use one-hot encoding.
+
+Feature alignment must be performed using the feature columns generated during training.
+
+The model must receive features in exactly the same order used during training.
+
+Do not change feature preprocessing independently in the serving pipeline without checking the training pipeline.
+
+Model
+
+Primary model:
+
+XGBoost Classifier
+
+Class imbalance is handled using:
+
+scale_pos_weight
+
+The prediction threshold defaults to:
+
+0.35
+Data Validation
+
+Validation implementation:
+
+src/utils/validate_data.py
+
+Great Expectations is used to validate:
+
+Required columns
+CustomerID
+Gender values
+Tenure ranges
+Charge ranges
+Other expected data constraints
+
+Data quality results are logged to MLflow.
+
+API
+Health Check
+GET /
+
+Expected response:
+
+{
+  "status": "ok"
+}
+Prediction
+POST /predict
+
+The endpoint accepts customer data using the Pydantic request model.
+
+Prediction output:
+
+Likely to churn
+
+or:
+
+Not likely to churn
+Gradio
+
+The Gradio application is mounted under:
+
+/ui
+
+It uses the same inference logic as the FastAPI prediction endpoint.
+
+Do not create separate prediction logic for the UI.
+
+The inference function in:
+
+src/serving/inference.py
+
+should remain the single source of truth for predictions.
+
+Docker Configuration
+
+Docker uses:
+
+python:3.12-slim
+
+The application runs on:
+
+0.0.0.0:8000
+
+The container exposes:
+
+8000
+
+Python module imports must correctly resolve the project's source code.
+
+CI/CD
+
+GitHub Actions is triggered by pushes to:
+
+main
+
+The workflow:
+
+Checks out the repository
+Logs into Docker Hub
+Builds the Docker image
+Pushes the image to Docker Hub
+
+GitHub Actions secrets:
+
+DOCKERHUB_USERNAME
+DOCKERHUB_TOKEN
+
+Docker Hub repository:
+
+taiyobali/customer-churn-prediction
+AWS Deployment
+
+Target architecture:
+
+Internet
+   ↓
+Application Load Balancer :80
+   ↓
+Target Group :8000
+   ↓
+ECS Fargate Task
+   ↓
+FastAPI Container
+
+Health check:
+
+GET /
+
+The ECS task security group should allow port 8000 from the ALB security group.
+
+The ALB security group should allow inbound HTTP traffic on port 80.
+
+Important Deployment Rules
+
+When a new Docker image is pushed:
+
+Push the image to Docker Hub.
+Update or redeploy the ECS service.
+Confirm the new ECS task is running.
+Confirm the ALB target becomes healthy.
+Test /.
+Test /predict.
+Test /ui.
+
+Pushing a new Docker image alone does not necessarily replace an already-running ECS task.
+
+Project Structure
+customer-churn-prediction/
+│
+├── .github/
+│   └── workflows/
+│
+├── data/
+│   ├── raw/
+│   └── processed/
+│
+├── scripts/
+│
+├── src/
+│   ├── app/
+│   ├── features/
+│   ├── serving/
+│   │   └── model/
+│   └── utils/
+│
+├── artifacts/
+│   ├── feature_columns.json
+│   ├── feature_columns.txt
+│   └── preprocessing.pkl
+│
+├── Dockerfile
+├── .dockerignore
+├── .gitignore
+├── requirements.txt
+├── README.md
+└── CLAUDE.md
+Development Rules
+Do Not Commit
+.venv/
+.env
+mlruns/
+data/raw/
+data/processed/
+*.pkl
+*.joblib
+Keep Serving Artifacts
+
+The bundled serving model under:
+
+src/serving/model/
+
+must remain available if it is required by the Docker build or inference system.
+
+Feature Consistency
+
+Never change training-time preprocessing without checking the serving pipeline.
+
+The following must remain synchronized:
+
+Training Features
+       ↕
+Serving Features
+       ↕
+Model Feature Order
+Single Source of Truth
+
+Inference logic should remain centralized in:
+
+src/serving/inference.py
+
+FastAPI and Gradio should use the same inference function.
+
+Do not duplicate model prediction logic.
+
+Troubleshooting
+ModuleNotFoundError
+
+Check:
+
+src/
+
+package structure and Python import paths.
+
+Verify that the Docker environment correctly exposes the project source code.
+
+ALB Unhealthy
+
+First check:
+
+GET /
+
+inside the container.
+
+Then verify:
+
+ALB :80
+   ↓
+Target Group :8000
+   ↓
+ECS :8000
+Old ECS Image
+
+Force a new ECS deployment after publishing a new image.
+
+MLflow Model Not Found
+
+For local development, check:
+
+mlruns/
+
+For Docker production, verify that the required model artifacts are packaged into the image and that the inference code uses the correct container path.
+
+Important Principle
+
+This repository demonstrates an end-to-end ML engineering workflow:
+
+Data
+  ↓
+Validation
+  ↓
+Features
+  ↓
+Model
+  ↓
+MLflow
+  ↓
+Inference
+  ↓
+API / UI
+  ↓
+Docker
+  ↓
+CI/CD
+  ↓
+Cloud Deployment
+
+Any change to one stage should be checked against downstream stages.

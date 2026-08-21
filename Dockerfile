@@ -1,5 +1,5 @@
 # 1. Use the official lightweight Python base image
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # 2. Set working directory inside the container
 WORKDIR /app
@@ -15,19 +15,15 @@ RUN pip install --upgrade pip \
 # 5. Copy the entire project into the image
 COPY . .
 
-# Explicitly copy model (in case .dockerignore excluded mlruns)
-# NOTE: destination changed to /app/src/serving/model to match inference.py's path
-COPY src/serving/model /app/src/serving/model
-
-# Copy MLflow run (artifacts + metadata) to the flat /app/model convenience path
-COPY src/serving/model/3b1a41221fc44548aed629fa42b762e0/artifacts/model /app/model
-COPY src/serving/model/3b1a41221fc44548aed629fa42b762e0/artifacts/feature_columns.txt /app/model/feature_columns.txt
-COPY src/serving/model/3b1a41221fc44548aed629fa42b762e0/artifacts/preprocessing.pkl /app/model/preprocessing.pkl
+# The training pipeline must run first and create artifacts/model.
+COPY artifacts/model /app/model
+COPY artifacts/feature_columns.txt /app/model/feature_columns.txt
+COPY artifacts/preprocessing.pkl /app/model/preprocessing.pkl
 
 # make "serving" and "app" importable without the "src." prefix
 # ensures logs are shown in real-time (no buffering).
 # lets you import modules using from app... instead of from src.app....
-ENV PYTHONUNBUFFERED=1 \ 
+ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/src
 
 # 6. Expose FastAPI port

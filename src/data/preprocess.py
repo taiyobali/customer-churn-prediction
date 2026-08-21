@@ -19,7 +19,14 @@ def preprocess_data(df: pd.DataFrame, target_col: str = "Churn") -> pd.DataFrame
 
     #target to 0/1 if it's Yes/No
     if target_col in df.columns and df[target_col].dtype =="object":
-        df[target_col] = df[target_col].str.strip().map({"Yes":1, "No":0})
+        values = df[target_col].dropna().astype(str).str.strip()
+
+        invalid = set(values) - {"Yes", "No"}
+
+        if invalid:
+            raise ValueError(f"Invalid Values in {target_col}: {invalid}")
+        
+        df[target_col] = values.map({"Yes":1, "No":0})
 
     #TotalCharges often has blanks
     if "TotalCharges" in df.columns:

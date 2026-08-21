@@ -38,11 +38,12 @@ class CustomerData(BaseModel):
     """
     Customer data schema for churn prediction.
     
-    This schema defines the exact 18 features required for churn prediction.
+    This schema defines the exact 19 features required for churn prediction.
     All features match the original dataset structure for consistency.
     """
     # Demographics
     gender: str                # "Male" or "Female"
+    SeniorCitizen: int         # 0 or 1
     Partner: str               # "Yes" or "No" - has partner
     Dependents: str            # "Yes" or "No" - has dependents
     
@@ -86,7 +87,7 @@ def get_prediction(data: CustomerData):
     """
     try:
         # Convert Pydantic model to dict and call inference pipeline
-        result = predict(data.dict())
+        result = predict(data.model_dump())
         return {"prediction": result}
     except Exception as e:
         # Return error details for debugging (consider logging in production)
@@ -98,7 +99,7 @@ def get_prediction(data: CustomerData):
 
 # === GRADIO WEB INTERFACE ===
 def gradio_interface(
-    gender, Partner, Dependents, PhoneService, MultipleLines,
+    gender,SeniorCitizen, Partner, Dependents, PhoneService, MultipleLines,
     InternetService, OnlineSecurity, OnlineBackup, DeviceProtection,
     TechSupport, StreamingTV, StreamingMovies, Contract,
     PaperlessBilling, PaymentMethod, tenure, MonthlyCharges, TotalCharges
@@ -116,6 +117,7 @@ def gradio_interface(
     # Construct data dictionary matching CustomerData schema
     data = {
         "gender": gender,
+        "SeniorCitizen": int(SeniorCitizen),
         "Partner": Partner,
         "Dependents": Dependents,
         "PhoneService": PhoneService,
@@ -146,6 +148,7 @@ demo = gr.Interface(
     inputs=[
         # Demographics section
         gr.Dropdown(["Male", "Female"], label="Gender", value="Male"),
+        gr.Dropdown([0, 1], label="Senior Citizen", value=0),
         gr.Dropdown(["Yes", "No"], label="Partner", value="No"),
         gr.Dropdown(["Yes", "No"], label="Dependents", value="No"),
         

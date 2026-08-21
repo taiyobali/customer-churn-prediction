@@ -7,10 +7,10 @@ import os
 import sys
 import time
 import argparse
+import shutil
 import pandas as pd
 import mlflow
-import mlflow.sklearn
-from posthog import project_root
+import mlflow.xgboost
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     classification_report, precision_score, recall_score,
@@ -104,6 +104,10 @@ def main(args):
         # Save locally for development serving
         with open(os.path.join(artifacts_dir, "feature_columns.json"), "w") as f:
             json.dump(feature_cols, f)
+
+        feature_file = os.path.join(artifacts_dir, "feature_columns.txt")
+        with open(feature_file, "w") as f:
+            f.write("\n".join(feature_cols) + "\n")
 
         # Log to MLflow for production serving
         mlflow.log_text("\n".join(feature_cols), artifact_file="feature_columns.txt")
@@ -202,10 +206,15 @@ def main(args):
         # === STAGE 7: Model Serialization and Logging ===
         print("💾 Saving model to MLflow...")
         # ESSENTIAL: Log model in MLflow's standard format for serving
-        mlflow.sklearn.log_model(
+        mlflow.xgboost.log_model(
             model, 
             artifact_path="model"  # This creates a 'model/' folder in MLflow run artifacts
         )
+        local_model_dir = os.path.join(artifacts_dir, "model")
+        if os.path.exists(local_model_dir):
+            shutil.rmtree(local_model_dir)
+        mlflow.xgboost.save_model(model, local_model_dir)
+        shutil.copy2(feature_file, os.path.join(local_model_dir, "feature_columns.txt"))
         print("✅ Model saved to MLflow for serving pipeline")
 
         # === Final Performance Summary ===
@@ -231,12 +240,3 @@ if __name__ == "__main__":
 
     args = p.parse_args()
     main(args)
-
-"""
-# Use this below to run the pipeline:
-
-python scripts/run_pipeline.py \                                            
-    --input data/raw/Telco-Customer-Churn.csv \
-    --target Churn
-
-"""

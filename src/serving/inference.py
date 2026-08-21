@@ -83,77 +83,42 @@ BINARY_MAP = {
 # Numeric columns that need type coercion
 NUMERIC_COLS = ["tenure", "MonthlyCharges", "TotalCharges"]
 
+MULTI_CATEGORY_COLS = ["MultipleLines", "InternetService", "OnlineSecurity", "OnlineBackup",
+                        "DeviceProtection", "TechSupport", "StreamingTV", "StreamingMovies",
+                        "Contract", "PaymentMethod"]
+
 def _serve_transform(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Apply identical feature transformations as used during model training.
-    
-    This function is CRITICAL for production ML - it ensures that features are
-    transformed exactly as they were during training to prevent train/serve skew.
-    
-    Transformation Pipeline:
-    1. Clean column names and handle data types
-    2. Apply deterministic binary encoding (using BINARY_MAP)
-    3. One-hot encode remaining categorical features  
-    4. Convert boolean columns to integers
-    5. Align features with training schema and order
-    
-    Args:
-        df: Single-row DataFrame with raw customer data
-        
-    Returns:
-        DataFrame with features transformed and ordered for model input
-        
-    IMPORTANT: Any changes to this function must be reflected in training
-    feature engineering to maintain consistency.
-    """
     df = df.copy()
-    
-    # Clean column names (remove any whitespace)
     df.columns = df.columns.str.strip()
-    
-    # === STEP 1: Numeric Type Coercion ===
-    # Ensure numeric columns are properly typed (handle string inputs)
+
     for c in NUMERIC_COLS:
         if c in df.columns:
-            # Convert to numeric, replacing invalid values with NaN
-            df[c] = pd.to_numeric(df[c], errors="coerce")
-            # Fill NaN with 0 (same as training preprocessing)
-            df[c] = df[c].fillna(0)
-    
-    # === STEP 2: Binary Feature Encoding ===
-    # Apply deterministic mappings for binary features
-    # CRITICAL: Must use exact same mappings as training
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+
     for c, mapping in BINARY_MAP.items():
         if c in df.columns:
             df[c] = (
-                df[c]
-                .astype(str)                    # Convert to string
-                .str.strip()                    # Remove whitespace
-                .map(mapping)                   # Apply binary mapping
-                .astype("Int64")                # Handle NaN values
-                .fillna(0)                      # Fill unknown values with 0
-                .astype(int)                    # Final integer conversion
+                df[c].astype(str).str.strip().map(mapping)
+                .astype("Int64").fillna(0).astype(int)
             )
-    
-    # === STEP 3: One-Hot Encoding for Remaining Categorical Features ===
-    # Find remaining object/categorical columns (not in BINARY_MAP)
-    obj_cols = [c for c in df.select_dtypes(include=["object"]).columns]
-    if obj_cols:
-        # Apply one-hot encoding with drop_first=True (same as training)
-        # This prevents multicollinearity by dropping the first category
-        df = pd.get_dummies(df, columns=obj_cols, drop_first=True)
-    
-    # === STEP 4: Boolean to Integer Conversion ===
-    # Convert any boolean columns to integers (XGBoost compatibility)
+
+    # Manual one-hot against the KNOWN training columns — pd.get_dummies() can't be
+    # trusted on a single row: with drop_first=True it always drops the only
+    # category present, regardless of what that value actually is.
+    for c in MULTI_CATEGORY_COLS:
+        if c in df.columns:
+            val = str(df[c].iloc[0]).strip()
+            dummy_col = f"{c}_{val}"
+            for col in FEATURE_COLS:
+                if col.startswith(f"{c}_"):
+                    df[col] = 1 if col == dummy_col else 0
+            df = df.drop(columns=[c])
+
     bool_cols = df.select_dtypes(include=["bool"]).columns
     if len(bool_cols) > 0:
         df[bool_cols] = df[bool_cols].astype(int)
-    
-    # === STEP 5: Feature Alignment with Training Schema ===
-    # CRITICAL: Ensure features are in exact same order as training
-    # Missing features get filled with 0, extra features are dropped
+
     df = df.reindex(columns=FEATURE_COLS, fill_value=0)
-    
     return df
 
 def predict(input_dict: dict) -> str:
